@@ -46,7 +46,25 @@ class BranchReseter:
 		base_branch_merge.checkout(force=True)
 
 	def init_branch(self):
-		self.cloned_repo.heads[self.base_branch_name].checkout()
+		print('Base branch {}'.format(self.base_branch_name))
+		print('Current branch {}'.format(self.cloned_repo.active_branch))
+		print('All heads {}'.format(self.cloned_repo.heads))
+		if self.base_branch_name in self.cloned_repo.heads:
+			print("Using from local.")
+			self.cloned_repo.heads[self.base_branch_name].checkout()
+			print('Current branch {}'.format(self.cloned_repo.active_branch))
+		else:
+			print("Using rmeote")
+			self.cloned_repo.create_head(self.base_branch_name, self.cloned_repo.remotes.origin.refs[self.base_branch_name])
+			self.cloned_repo.heads[self.base_branch_name].set_tracking_branch(self.cloned_repo.remotes.origin.refs[self.base_branch_name])
+			self.cloned_repo.heads[self.base_branch_name].checkout()
+			print('All heads {}'.format(self.cloned_repo.heads))
+			print('Current branch {}'.format(self.cloned_repo.active_branch))
+
+			#branch_branch_remote = self.cloned_repo.refs['origin/{}'.format(self.base_branch_name)]
+			#branch_branch_remote.checkout()
+
+		self.cloned_repo.remotes.origin.pull()
 		print('Current branch {}'.format(self.cloned_repo.active_branch))
 		print('All heads {}'.format(self.cloned_repo.heads))
 
@@ -64,6 +82,7 @@ class BranchReseter:
 		print('Pushing to remote branch {}'.format(self.cloned_repo.active_branch))
 		self.cloned_repo.remotes.origin.push(refspec='{}:{}'.format(self.new_branch_name, self.new_branch_name),
 											 force=True)
+
 	def reset_hard(self):
 
 		self.init_branch()
@@ -93,10 +112,10 @@ destination_folder = 'repos/{}'.format(repo_name)
 
 branch_reseter = BranchReseter(repo_url=final_url,
                                local_folder_path=destination_folder,
-                               base_branch_name=branch_from,
+                               base_branch_name=branch_to,
                                new_branch_name=branch_to,
                                branches_to_merge=branches_to_merge_together)
 
-branch_reseter.reset_hard()
-#branch_reseter.merge()
+#branch_reseter.reset_hard()
+branch_reseter.merge()
 
