@@ -33,19 +33,40 @@ class BranchReseter:
 		self.cloned_repo.git.branch('-D', branch_to_delete)
 
 	def merge_branch(self, branch_to_merge):
+		self.cloned_repo.heads[self.new_branch_name].checkout()
 		print('Merging branch {} into {}'.format(branch_to_merge, self.cloned_repo.active_branch))
+		base_branch_merge = self.cloned_repo.active_branch
+		branch_to_merge_reference = self.cloned_repo.refs['origin/{}'.format(branch_to_merge)]
+		base = self.cloned_repo.merge_base(base_branch_merge, branch_to_merge_reference)
+		self.cloned_repo.index.merge_tree(branch_to_merge_reference, base=base)
+
+		self.cloned_repo.index.commit('Merge branch {} into {} using BranchReseter by BotEizo'.format(branch_to_merge, self.new_branch_name),
+		                              parent_commits = (base_branch_merge.commit, branch_to_merge_reference.commit))
+
+		base_branch_merge.checkout(force=True)
+
+	def init_branch(self):
+		self.cloned_repo.heads[self.base_branch_name].checkout()
+		print('Current branch {}'.format(self.cloned_repo.active_branch))
+		print('All heads {}'.format(self.cloned_repo.heads))
 
 	def merge_branches(self):
+		self.init_branch()
 		print('Merging branches {} into {}'.format(self.branches_to_merge, self.cloned_repo.active_branch))
 		for branch_to_merge in self.branches_to_merge:
 			self.merge_branch(branch_to_merge)
 
-	def reset_branch(self):
+	def merge(self):
+		self.merge_branches()
+		self.push_merge()
 
-		self.cloned_repo.heads[self.base_branch_name].checkout()
+	def push_merge(self):
+		print('Pushing to remote branch {}'.format(self.cloned_repo.active_branch))
+		self.cloned_repo.remotes.origin.push(refspec='{}:{}'.format(self.new_branch_name, self.new_branch_name),
+											 force=True)
+	def reset_hard(self):
 
-		print('Current branch {}'.format(self.cloned_repo.active_branch))
-		print('All heads {}'.format(self.cloned_repo.heads))
+		self.init_branch()
 
 		if self.new_branch_name in self.cloned_repo.heads:
 			self.delete_branch(self.new_branch_name)
@@ -55,10 +76,7 @@ class BranchReseter:
 		print('Current branch {}'.format(self.cloned_repo.active_branch))
 
 		self.merge_branches()
-
-		print('Pushing to remote branch {}'.format(self.cloned_repo.active_branch))
-		self.cloned_repo.remotes.origin.push(refspec='{}:{}'.format(self.new_branch_name, self.new_branch_name),
-		                                     force=True)
+		self.push_merge()
 
 
 GB_FORMAT_FINAL_URL  = 'https://{}:x-oauth-basic@github.com/{}/{}'
@@ -68,7 +86,7 @@ ORGANIZATION = os.environ.get('GB_ORGANIZATION')
 repo_name = sys.argv[1]
 branch_from = sys.argv[2]
 branch_to = sys.argv[3]
-branches_to_merge_together = sys.argv[4].split(',')
+branches_to_merge_together = sys.argv[4].split(',') if len(sys.argv) > 4 else []
 
 final_url = GB_FORMAT_FINAL_URL.format(GB_PRIVATE_TOKEN, ORGANIZATION, repo_name)
 destination_folder = 'repos/{}'.format(repo_name)
@@ -79,4 +97,6 @@ branch_reseter = BranchReseter(repo_url=final_url,
                                new_branch_name=branch_to,
                                branches_to_merge=branches_to_merge_together)
 
-branch_reseter.reset_branch()
+branch_reseter.reset_hard()
+#branch_reseter.merge()
+
